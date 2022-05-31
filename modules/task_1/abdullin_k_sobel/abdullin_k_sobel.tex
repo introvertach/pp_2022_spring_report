@@ -1,0 +1,696 @@
+\documentclass[12pt]{article}
+\usepackage{lingmacros}
+\usepackage{tree-dvips}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{multicol}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{caption}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+\renewcommand{\thesubsection}{\arabic{subsection}}
+\makeatletter
+\def\@seccntformat#1{\@ifundefined{#1@cntformat}%
+   {\csname the#1\endcsname\quad}
+   {\csname #1@cntformat\endcsname}}
+\newcommand\section@cntformat{}
+\makeatother
+
+\begin{document}
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации\\ 
+\vspace{3mm}
+Федеральное государственное автономное образовательное учреждение высшего образования\\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского\\
+\vspace{0.8cm}
+Институт информационных технологий, математики и механики\\
+\vspace{3cm}
+\textbf{\large Отчет по лабораторной работе}\\
+\vspace{6mm}
+\textbf{\Large Выделение ребер на изображении с использованием оператора Собеля} \\
+
+\end{center}
+\vspace{2cm}
+\newlength{\ML}
+\settowidth{\ML}{«\underline{\hspace{0.7cm}}» \underline{\hspace{2cm}}}
+
+\begin{flushright}
+\textbf{ Выполнил:}\\
+студент группы 381906-2\\
+Абдуллин К.Э.\\
+\end{flushright}
+\begin{flushright}
+\textbf{Проверил:}\\
+д-т кафедры МОСТ,\\
+к. т.н.\\
+Сысоев А. В. \\
+\end{flushright}
+\vfill 
+\begin{center}
+ Нижний Новгород\\
+ 2022 г.
+\end{center}
+\end{titlepage}
+\setcounter{page}{2}
+\tableofcontents
+\newpage 
+
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Оператор Собеля — дискретный дифференциальный оператор, вычисляющий приближённое значение градиента яркости изображения. Результатом применения оператора Собеля в каждой точке изображения является либо вектор градиента яркости в этой точке, либо его норма. Используется в области обработки изображений, в частности, часто применяется в алгоритмах выделения границ.
+
+Данный оператор основан на операции свертки изображения. В данной работе свертка вычисляется с ядром \begin{math}G_x\end{math}, обеспечивающими вычисление первых производных и соответствеено градиент яркости по горизонтальному направлению:
+
+\begin{equation}
+G_x=
+\left[
+  \begin{array}{ccc}
+    -1 & 0 & 1 \\
+     -2 & 0 & 2 \\
+     -1 & 0 & 1\\
+  \end{array}
+\right]
+\end{equation}
+
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+
+ \begin{enumerate} 
+ \item Разработать последовательный алгоритм оператора Собеля и написать автоматические тесты с использованием Google C++ Testing Framework для него.
+ \item Разработать параллельный алгоритм оператора Собеля при помощи технологии OpenMP и написать автоматические тесты с использованием Google C++ Testing Framework для него.
+ \item Аналогично для технологии TBB.
+ \item Провести вычислительные эксперименты для каждой технологии и сравнить результаты.
+ \end{enumerate}
+
+
+\newpage 
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+В самом алгоритме можно выделить две части: операция свертки и вычисление результата. 
+
+Операция свертки происходит следующим образом. Изображение можно представить в виде матрицы чисел, которые находятся в промежутке от 0 до 255. По этой матрице движется ядро, выполняя поэлементное умножение для той части данных, которую сейчас покрывает. Результаты переумножений ячеек суммируются. Если полученное число не входит в указанный ранее промежуток, программа заменяеет его на значение ближайшей границы.
+
+Полученная сумма заносится в пиксель результирующей матрицы по координатам, соответствующим координатам серединного пикселя зоны перекрытия ядром в исходной матрице.
+\newpage 
+
+\section*{Описание структуры программы}
+\addcontentsline{toc}{section}{Описание структуры программы}
+Проект, реализующий данный алгоритм, состоит из четырех файлов: 
+\begin{itemize}
+\item sobel.h - прототипы функции
+\item sobel.cpp - реализация функций
+\item main.cpp - Google-тесты
+\item CMakeLists.txt
+\end{itemize}
+
+\newpage 
+
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+
+\subsection*{OpenMP}
+\addcontentsline{toc}{subsection}{OpenMP}
+
+Вся реализация оператора Собеля состоит из нескольких вложенных циклов (два из них идут по ширине и высоте исходной матрицы, другие два - по элементам подматрицы, на которой находится ядро). В таком случае для распараллеливания удобно пользоваться директивой \verb|pragma omp parallel for|. Эта директива сообщает, что при выполнении цикла for в параллельном регионе итерации цикла должны быть распределены между потоками группы.
+
+\subsection*{TBB}
+\addcontentsline{toc}{subsection}{TBB}
+
+В этой технологии распараллеливание происходит при помощи шаблонной функции:
+\begin{verbatim}
+tbb::parallel_for(tbb::blocked_range<size_t>(0, source.size()),
+    [&](const tbb::blocked_range<size_t>& r) {})
+\end{verbatim}
+
+Первый параметр обозначает итерационное пространство - класс специального вида, задающий количество итераций (в данном случае количество итераций соответствует количеству пикселей матрицы). Второй - функтор - класс специального вида, который выполняет необходимые вычисления.
+\newpage
+
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+
+Конфигурация системы:
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz;
+\item Оперативная память: 8Gb;
+\item ОС: Microsoft Windows 10 Домашняя;
+\item Количество ядер - 4
+\end{itemize}
+
+Эксперименты проведены на матрице постоянного размера 1920*1080. Параметром эффективности выступает отношение времени выполнения параллельных алгоритмов к времени выполнения последовательного алгоритма. 
+
+Распараллеливание с помощью OpenMP дало показатель эффективности 2.473, c помощью TBB - 5.371.
+
+Однако важно отметить, что на матрицах относительно малого размера, например 20*20, на любом количестве потоков последовательная реализация тратит меньше времени, так как при параллельном алгоритме любой технологии ощутимое количество времени тратится на создание потоков.
+
+В итоге, проанализировав выше написанное, можно увидеть, что самой эффективной технологией является TBB. Это объясняется тем, что у данной технологии присутствует планировщик задач. Благодаря ему происходит уменьшение времени простоя процессора.
+
+\newpage
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+
+В данной лабораторной работе был изучен оператор Собеля. Реализован алгоритм нахождения рёбер на изображении с помощью этого оператора: последовательно и параллельно на технологиях OpenMP и TBB. Выявлено, что реализация на TBB эффективнее реализации на OpenMP.
+
+Проверка работы программы была совершена при помощи тестов, созданными с использование Google C++ Testing Framework.
+
+\newpage
+\newpage
+
+\begin{thebibliography}{}
+\addcontentsline{toc}{section}{Список литературы и ссылок}
+\bibitem{Sysoev} Сысоев А.В., Мееров И.Б., Свистунов А.Н., Курылев А.Л., Сенин А.В., Шишков А.В., Корняков К.В., Сиднев А.А. «Параллельное программирование в системах с общей памятью. Инструментальная поддержка». Учебно-методические материалы по программе повышения квалификации «Технологии высокопроизводительных вычислений для обеспечения учебного процесса и научных исследований». Нижний Новгород, 2007, 110 с. 
+
+
+\end{thebibliography}
+\newpage
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+Код, написанный в рамках лабораторной работы:
+\par Задача 1. 
+\begin{lstlisting}
+//.h
+// Copyright 2022 Abdullin Konstantin
+#ifndef MODULES_TASK_1_ABDULLIN_K_SOBEL_SOBEL_H_
+#define MODULES_TASK_1_ABDULLIN_K_SOBEL_SOBEL_H_
+
+#include <vector>
+#include <random>
+#include <ctime>
+
+std::vector<int> InitRandMatrix(int height, int width);
+template <class T>
+T clamp(T value, T max, T min) {
+  if (value > max)
+    return max;
+  if (value < min)
+    return min;
+  return value;
+}
+int Index(int x, int y, int height);
+std::vector<int> xSobelFilter(std::vector<int> source,
+  int height, int width);
+
+#endif  // MODULES_TASK_1_ABDULLIN_K_SOBEL_SOBEL_H_
+\end{lstlisting}
+\begin{lstlisting}
+//.cpp
+// Copyright 2022 Abdullin Konstantin
+#include "../../../modules/task_1/abdullin_k_Sobel/Sobel.h"
+#include <iostream>
+
+std::vector<int> InitRandMatrix(int height, int width) {
+  if (height <= 0 || width <= 0)
+    throw "Size of matrix error!";
+  std::mt19937 gen;
+  gen.seed(static_cast<int>(time(0)));
+  std::vector<int> result(height * width);
+  for (int i = 0; i < height * width; i++)
+    result[i] = gen() % 256;
+  return result;
+}
+
+int Index(int x, int y, int width) {
+  int result = y * width + x;
+  return result;
+}
+
+std::vector<int> xSobelFilter(std::vector<int> source,
+  int height, int width) {
+  std::vector<int> result(height * width);
+  int Kernel[9];
+  int radius = 1, size = 3;
+  Kernel[0] = -1, Kernel[1] = 0, Kernel[2] = 1,
+    Kernel[3] = -2, Kernel[4] = 0, Kernel[5] = 2,
+    Kernel[6] = -1, Kernel[7] = 0, Kernel[8] = 1;
+
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++) {
+      int pixel = 0;
+      for (int i = -radius; i <= radius; i++)
+        for (int j = -radius; j <= radius; j++) {
+          int idx = (i + radius) * size + (j + radius);
+          int index = Index(clamp(x + j, width - 1, 0),
+            clamp(y + i, height - 1, 0), width);
+          pixel += Kernel[idx] * source[index];
+        }
+      result[Index(x, y, width)] = clamp(pixel, 255, 0);
+    }
+
+  return result;
+}
+\end{lstlisting}
+\begin{lstlisting}
+//main.cpp
+// Copyright 2022 Abdullin Konstantin
+#include <gtest/gtest.h>
+#include "./Sobel.h"
+
+TEST(Sobel, Calculating_index_is_correct) {
+  int x = 11, y = 13, w = 20;
+  EXPECT_EQ(Index(x, y, w), 271);
+}
+
+TEST(Sobel, Clamp_max_is_correct) {
+  EXPECT_EQ(clamp(256, 255, 0), 255);
+}
+
+TEST(Sobel, Clamp_min_is_correct) {
+  EXPECT_EQ(clamp(-1, 255, 0), 0);
+}
+
+TEST(Sobel, InitRandMatrix_throw1) {
+  ASSERT_ANY_THROW(InitRandMatrix(0, 1));
+}
+
+TEST(Sobel, InitRandMatrix_throw2) {
+  ASSERT_ANY_THROW(InitRandMatrix(1, 0));
+}
+
+TEST(Sobel, Filter_is_correct) {
+  std::vector<int> a = {44, 222, 87, 124, 0, 172, 218, 45, 87,
+    17, 116, 211, 118, 228, 74, 143};
+  int h = 4, w = 4;
+  std::vector<int> result = xSobelFilter(a, h, w);
+  std::vector<int> check = {255, 255, 0, 0, 255, 255, 0, 0,
+    142, 232, 176, 86, 255, 0, 0, 255};
+  EXPECT_EQ(result, check);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+  return 0;
+}
+\end{lstlisting}
+Задача 2.
+\begin{lstlisting}
+//.h
+// Copyright 2022 Abdullin Konstantin
+#ifndef MODULES_TASK_2_ABDULLIN_K_SOBEL_OMP_SOBEL_H_
+#define MODULES_TASK_2_ABDULLIN_K_SOBEL_OMP_SOBEL_H_
+
+#include <vector>
+
+std::vector<int> InitRandMatrix(int height, int width);
+template <class T>
+T clamp(T value, T max, T min) {
+  if (value > max)
+    return max;
+  if (value < min)
+    return min;
+  return value;
+}
+int Index(int x, int y, int height);
+int CalculatePixelValue(const std::vector<int>& source,
+  int height, int width, int x, int y);
+std::vector<int> SequentialSobelFilter(const std::vector<int>&
+  source, int height, int width);
+std::vector<int> ParallelSobelFilter(const std::vector<int>&
+  source, int height, int width, std::size_t num_threads);
+
+#endif  // MODULES_TASK_2_ABDULLIN_K_SOBEL_OMP_SOBEL_H_
+\end{lstlisting}
+\begin{lstlisting}
+//.cpp
+// Copyright 2022 Abdullin Konstantin
+#include <omp.h>
+#include <random>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+
+#include "../../../modules/task_2/abdullin_k_Sobel_omp/Sobel.h"
+
+int Kernel[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+int radius = 1, size = 3;
+
+std::vector<int> InitRandMatrix(int height, int width) {
+  if (height <= 0 || width <= 0)
+    throw "Size of matrix error!";
+  std::random_device dev;
+  std::mt19937 gen(dev());
+  std::vector<int> result(height * width);
+  for (int i = 0; i < height * width; i++)
+    result[i] = gen() % 256;
+  return result;
+}
+
+int Index(int x, int y, int width) {
+  int result = y * width + x;
+  return result;
+}
+
+int CalculatePixelValue(const std::vector<int>& source,
+  int height, int width, int x, int y) {
+  int pixel = 0;
+  for (int i = -radius; i <= radius; i++)
+    for (int j = -radius; j <= radius; j++) {
+      int idx = (i + radius) * size + (j + radius);
+      int index = Index(clamp(x + j, width - 1, 0),
+        clamp(y + i, height - 1, 0), width);
+      pixel += Kernel[idx] * source[index];
+    }
+  return clamp(pixel, 255, 0);
+}
+
+std::vector<int> SequentialSobelFilter(const std::vector<int>&
+  source, int height, int width) {
+  std::vector<int> result(height * width);
+
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++)
+      result[Index(x, y, width)] = CalculatePixelValue(
+        source, height, width, x, y);
+
+  return result;
+}
+
+std::vector<int> ParallelSobelFilter(const std::vector<int>&
+  source, int height, int width, std::size_t num_threads) {
+  omp_set_num_threads(num_threads);
+  std::vector<int> result(height * width);
+  std::size_t part_size = source.size() / num_threads;
+  std::size_t shift = source.size() % num_threads;
+  std::vector<int> part;
+#pragma omp parallel shared(source, shift) private(part)
+  {
+    std::size_t thread_id = omp_get_thread_num();
+    if (thread_id == 0) {
+      part.resize(part_size + shift);
+      std::copy(source.begin(), source.begin() + part_size + shift,
+        part.begin());
+    } else {
+      part.resize(part_size);
+    }
+    for (std::size_t i = 1; i < num_threads; i++) {
+      if (thread_id == i) {
+        std::copy(source.begin() + part_size * i + shift, source.end() -
+          part_size * (num_threads - i - 1), part.begin());
+      }
+    }
+    for (std::size_t i = 0; i < part.size(); i++) {
+      int x, y;
+      if (thread_id > 0) {
+        x = static_cast<int>(thread_id * part_size + shift + i) % width;
+        y = static_cast<int>(thread_id * part_size + shift + i) / width;
+      } else {
+        x = static_cast<int>(i) % width; y = static_cast<int>(i) / width;
+      }
+      part[i] = CalculatePixelValue(source, height, width, x, y);
+    }
+    if (thread_id == 0) {
+      for (std::size_t i = 0; i < part.size(); i++) {
+        result[i] = part[i];
+      }
+    } else {
+      for (std::size_t i = 0; i < part.size(); i++) {
+        result[part_size * thread_id + shift + i] = part[i];
+      }
+    }
+    part.clear();
+  }
+  return result;
+}
+\end{lstlisting}
+\begin{lstlisting}
+//main.cpp
+// Copyright 2022 Abdullin Konstantin
+#include <gtest/gtest.h>
+#include <vector>
+#include "./Sobel.h"
+
+TEST(Sobel, Parallel_filter_3_threads) {
+  std::vector<int> a = { 44, 222, 87, 124, 0, 172, 218, 45, 87,
+    17, 116, 211, 118, 228, 74, 143 };
+  int h = 4, w = 4;
+  std::vector<int> seq_result = SequentialSobelFilter(a, h, w);
+  std::vector<int> par_result = ParallelSobelFilter(a, h, w, 3);
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_4x8_4) {
+  std::vector<int> a = InitRandMatrix(4, 8);
+  std::vector<int> seq_result = SequentialSobelFilter(a, 4, 8);
+  std::vector<int> par_result = ParallelSobelFilter(a, 4, 8, 4);
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_11x4_3) {
+  std::vector<int> a = InitRandMatrix(11, 4);
+  std::vector<int> seq_result = SequentialSobelFilter(a, 11, 4);
+  std::vector<int> par_result = ParallelSobelFilter(a, 11, 4, 3);
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_4x5_5) {
+  std::vector<int> a = InitRandMatrix(4, 5);
+  std::vector<int> seq_result = SequentialSobelFilter(a, 4, 5);
+  std::vector<int> par_result = ParallelSobelFilter(a, 4, 5, 5);
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_6x3_4) {
+  std::vector<int> a = InitRandMatrix(6, 3);
+  std::vector<int> seq_result = SequentialSobelFilter(a, 6, 3);
+  std::vector<int> par_result = ParallelSobelFilter(a, 6, 3, 4);
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+  return 0;
+}
+\end{lstlisting}
+Задача 3.
+\begin{lstlisting}
+//.h
+// Copyright 2022 Abdullin Konstantin
+#ifndef MODULES_TASK_3_ABDULLIN_K_SOBEL_TBB_SOBEL_H_
+#define MODULES_TASK_3_ABDULLIN_K_SOBEL_TBB_SOBEL_H_
+
+#include <vector>
+
+std::vector<int> InitRandMatrix(int height, int width);
+template <class T>
+T clamp(T value, T max, T min) {
+  if (value > max)
+    return max;
+  if (value < min)
+    return min;
+  return value;
+}
+int Index(int x, int y, int height);
+int CalculatePixelValue(const std::vector<int>& source,
+  int width, int x, int y);
+std::vector<int> SequentialSobelFilter(const std::vector<int>&
+  source, int height, int width);
+std::vector<int> ParallelSobelFilter(const std::vector<int>&
+  source, int height, int width);
+
+#endif  // MODULES_TASK_3_ABDULLIN_K_SOBEL_TBB_SOBEL_H_
+\end{lstlisting}
+\begin{lstlisting}
+//.cpp
+// Copyright 2022 Abdullin Konstantin
+#include <tbb/blocked_range.h>
+#include <tbb/blocked_range2d.h>
+#include <tbb/parallel_for.h>
+#include <tbb/task_scheduler_init.h>
+#include <random>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+
+#include "../../../modules/task_3/abdullin_k_Sobel_tbb/Sobel.h"
+
+int Kernel[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+int radius = 1, size = 3;
+
+std::vector<int> InitRandMatrix(int height, int width) {
+  if (height <= 0 || width <= 0)
+    throw "Size of matrix error!";
+  std::random_device dev;
+  std::mt19937 gen(dev());
+  std::vector<int> result(height * width);
+  for (int i = 0; i < height * width; i++)
+    result[i] = gen() % 256;
+  return result;
+}
+
+int Index(int x, int y, int width) {
+  int result = y * width + x;
+  return result;
+}
+
+int CalculatePixelValue(const std::vector<int>& source,
+  int width, int x, int y) {
+  int height = source.size() / width;
+  int pixel = 0;
+  for (int i = -radius; i <= radius; i++)
+    for (int j = -radius; j <= radius; j++) {
+      int idx = (i + radius) * size + (j + radius);
+      int index = Index(clamp(x + j, width - 1, 0),
+        clamp(y + i, height - 1, 0), width);
+      pixel += Kernel[idx] * source[index];
+    }
+  return clamp(pixel, 255, 0);
+}
+
+std::vector<int> SequentialSobelFilter(const std::vector<int>&
+  source, int height, int width) {
+  std::vector<int> result(height * width);
+
+  for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++)
+      result[Index(x, y, width)] = CalculatePixelValue(
+        source, width, x, y);
+
+  return result;
+}
+
+std::vector<int> ParallelSobelFilter(const std::vector<int>&
+  source, int height, int width) {
+  std::vector<int> result(source.size());
+
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, source.size()),
+    [&](const tbb::blocked_range<size_t>& r) {
+      for (size_t i = r.begin(); i != r.end(); i++) {
+        int x, y;
+        y = (i) / width;
+        x = (i) % width;
+        result[i] = CalculatePixelValue(source, width, x, y);
+      }
+    });
+  return result;
+}
+\end{lstlisting}
+\begin{lstlisting}
+//main.cpp
+// Copyright 2022 Abdullin Konstantin
+#include <gtest/gtest.h>
+#include <tbb/tick_count.h>
+#include <vector>
+#include <iostream>
+#include "./Sobel.h"
+
+TEST(Sobel, Parallel_filter_20x18) {
+  std::vector<int> a = InitRandMatrix(20, 18);
+  tbb::tick_count start = tbb::tick_count::now();
+  std::vector<int> seq_result = SequentialSobelFilter(a, 20, 18);
+  tbb::tick_count finish = tbb::tick_count::now();
+  float seq_time = (finish - start).seconds();
+  start = tbb::tick_count::now();
+  std::vector<int> par_result = ParallelSobelFilter(a, 20, 18);
+  finish = tbb::tick_count::now();
+  float par_time = (finish - start).seconds();
+  std::cout << "S: " << seq_time << " P: " << par_time <<
+    " Efficiency: " << seq_time / par_time << std::endl;
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_65x15) {
+  std::vector<int> a = InitRandMatrix(65, 15);
+  tbb::tick_count start = tbb::tick_count::now();
+  std::vector<int> seq_result = SequentialSobelFilter(a, 65, 15);
+  tbb::tick_count finish = tbb::tick_count::now();
+  float seq_time = (finish - start).seconds();
+  start = tbb::tick_count::now();
+  std::vector<int> par_result = ParallelSobelFilter(a, 65, 15);
+  finish = tbb::tick_count::now();
+  float par_time = (finish - start).seconds();
+  std::cout << "S: " << seq_time << " P: " << par_time <<
+    " Efficiency: " << seq_time / par_time << std::endl;
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_150x90) {
+  std::vector<int> a = InitRandMatrix(150, 90);
+  tbb::tick_count start = tbb::tick_count::now();
+  std::vector<int> seq_result = SequentialSobelFilter(a, 150, 90);
+  tbb::tick_count finish = tbb::tick_count::now();
+  float seq_time = (finish - start).seconds();
+  start = tbb::tick_count::now();
+  std::vector<int> par_result = ParallelSobelFilter(a, 150, 90);
+  finish = tbb::tick_count::now();
+  float par_time = (finish - start).seconds();
+  std::cout << "S: " << seq_time << " P: " << par_time <<
+    " Efficiency: " << seq_time / par_time << std::endl;
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_500x200) {
+  std::vector<int> a = InitRandMatrix(500, 200);
+  tbb::tick_count start = tbb::tick_count::now();
+  std::vector<int> seq_result = SequentialSobelFilter(a, 500, 200);
+  tbb::tick_count finish = tbb::tick_count::now();
+  float seq_time = (finish - start).seconds();
+  start = tbb::tick_count::now();
+  std::vector<int> par_result = ParallelSobelFilter(a, 500, 200);
+  finish = tbb::tick_count::now();
+  float par_time = (finish - start).seconds();
+  std::cout << "S: " << seq_time << " P: " << par_time <<
+    " Efficiency: " << seq_time / par_time << std::endl;
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+TEST(Sobel, Parallel_filter_1612x534) {
+  std::vector<int> a = InitRandMatrix(1612, 534);
+  tbb::tick_count start = tbb::tick_count::now();
+  std::vector<int> seq_result = SequentialSobelFilter(a, 1612, 534);
+  tbb::tick_count finish = tbb::tick_count::now();
+  float seq_time = (finish - start).seconds();
+  start = tbb::tick_count::now();
+  std::vector<int> par_result = ParallelSobelFilter(a, 1612, 534);
+  finish = tbb::tick_count::now();
+  float par_time = (finish - start).seconds();
+  std::cout << "S: " << seq_time << " P: " << par_time <<
+    " Efficiency: " << seq_time / par_time << std::endl;
+  EXPECT_EQ(seq_result, par_result);
+  a.clear(); seq_result.clear(); par_result.clear();
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+  return 0;
+}
+\end{lstlisting}
+
+\end{document}
